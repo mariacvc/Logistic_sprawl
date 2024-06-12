@@ -1,5 +1,7 @@
 Empirical Assessment of Land Use and Other Policy Impacts on Warehousing Location Choices in San Bernardino city.
-Maria Valencia-Cardenas
 
-Abstract
+By Maria Valencia-Cardenas
+
+Abstract:
+
 Over the last few decades, the social impacts associated with warehousing activities have grown due to the rapid spatial expansion of the freight industry in urban areas. Policymaking and planning practices can contribute to these negative impacts when policies are enacted to attract warehouse and distribution center developments without strategies to address or mitigate these impacts. Thus, the purpose of this study is to analyze local policy implications on logistics sprawl and its impact on the communities surrounding San Bernardino city as a case study. As a first step, a point pattern analysis was used to identify the extent of sprawl in the locations of freight facilities. A spatial regression analysis was used to identify several factors that influence the location of freight facilities. A demographic score was used in this study to establish a direct relationship between disadvantage communities and their proximity to freight facilities. As a final component of this study, a regional-level collection of policies was incorporated to explain the growth and dynamics of freight facilities. According to preliminary results, freight facilities are clustered in the south with a high concentration in that region. The use of land and the construction of housing do not address the issue of freight logistic sprawl in the city. According to the CEQA reports, there have been few changes in the composition of facilities in the city over the past decade. As part of this study, several strategies are suggested for incorporating sustainable freight practices into the planning process.
