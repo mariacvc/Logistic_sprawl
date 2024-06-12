@@ -1,0 +1,804 @@
+---
+title: "ACS_Census"
+author: "Maria_Valencia_Cardenas"
+date: "2024-05-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# *Research goal*
+
+this study will conduct a comprehensive review of the local policies implemented in the city of San Bernardino and evaluate through 
+spatial and statistical analyses the extent to which those policies help explain the growth and dynamics of warehouse and distribution 
+center quantity and locations during the last decade. Specifically, I will examine the zoning and growth management policies that 
+encourage warehouse development, beginning with a review of the San Bernardino general plan
+
+## Code
+
+# loading packages
+
+
+```{r,include=FALSE}
+
+# Census data
+library(censusapi)
+library(tidycensus)
+library(tigris)
+
+# General
+library(remotes)
+library(rlang)
+library(ggplot2)
+library(tidyverse)
+library(broom)
+library(dismo)
+library(boot)
+library(leaps)
+library(glmnet)
+library(sf)
+library(cbpR)
+library(sqldf)
+
+# google maps
+library(ggmap) 
+library(tmaptools)
+library(googleway)
+
+# OpenStreetMaps
+library(osmdata) 
+
+# Point patter
+library(spatstat)
+if (!require("rspat")) remotes::install_github('rspatial/rspat')
+library(rspat)
+library(spatstat.geom)
+
+# Autocorrelation 
+library(spdep)
+library(tmap)
+
+# For year of operation - web scraping 
+library(httr)
+library(jsonlite)
+```
+
+
+```{r}
+# Census API 
+census_api_key("MY_KEY", install = TRUE, overwrite=TRUE)
+```
+
+
+# Data collection
+
+I want to identify sociodemographic, residential, and commute to work characteristics at the census level, considering the American 
+Community Survey, from the U.S. Census Burau.
+
+### General
+
+```{r}
+# Total population
+totalpop <- get_acs(
+  geography = "tract", 
+  table = "B01003",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5",
+  geometry = TRUE,
+  resolution = "20m"
+) %>%
+  shift_geometry()
+
+# Race
+race <- get_acs(
+  geography = "tract", 
+  table = "B02001",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Ancestry
+ancestry <- get_acs(
+  geography = "tract", 
+  table = "B04007",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Foreing population
+foreign <- get_acs(
+  geography = "tract", 
+  table = "B05015",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Non-Foreing population
+noforeign <- get_acs(
+  geography = "tract", 
+  table = "B06002",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Geographi mobility
+geo_mobility <- get_acs(
+  geography = "tract", 
+  table = "B07001",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Place of Birth by Educational Attainment in the United States
+Sex_Age_table <- get_acs(
+  geography = "tract", 
+  table = "B06009",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Household type
+household <- get_acs(
+  geography = "tract", 
+  table = "B11012",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Poverty status
+poverty <- get_acs(
+  geography = "tract", 
+  table = "B17001",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Disability age/sex
+disability <- get_acs(
+  geography = "tract", 
+  table = "B18101",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Gini index of income
+gini <- get_acs(
+  geography = "tract", 
+  table = "B19083",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+```
+
+### Employment
+
+```{r}
+# Means of transportation to work
+Sex_transp_work <- get_acs(
+  geography = "tract", 
+  table = "B08006",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Means of transportation to work
+occup_transp_work <- get_acs(
+  geography = "tract", 
+  table = "B08124",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Means of transportation to work
+indust_transp_work <- get_acs(
+  geography = "tract", 
+  table = "B08126",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Place to work
+place_work <- get_acs(
+  geography = "tract", 
+  table = "B08009",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Travel time to work
+place_work <- get_acs(
+  geography = "tract", 
+  table = "B08012",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Vehicles per worker
+vehicle_worker <- get_acs(
+  geography = "tract", 
+  table = "B08014",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Sex/Education/Employment status
+Sex_Edu_Empl <- get_acs(
+  geography = "tract", 
+  table = "B14005",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Education/Employment/Lenguage status
+Edu_Emp_Leng <- get_acs(
+  geography = "tract", 
+  table = "B16010",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+
+# Workers earnings  
+earnings <- get_acs(
+  geography = "tract", 
+  table = "B08119",
+  state = "California",
+  county = "San Bernardino County",
+  year = 2022,
+  survey = "acs5"
+)
+```
+
+### County business pattern
+
+Source: https://github.com/hrecht/censusapi/blob/HEAD/vignettes/articles/example-list.Rmd
+Using the censusapi package
+
+
+```{r}
+#API key
+Sys.setenv(CENSUS_KEY="My_Key")
+# Reload .Renviron
+readRenviron("~/.Renviron")
+# Check to see that the expected key is output in your R console
+Sys.getenv("CENSUS_KEY")
+```
+We can also use listCensusMetadata to see which geographic levels are available.
+
+```{r}
+# Check CBP metadata for supported geographies 
+listCensusMetadata(
+  name = "cbp",
+  vintage = "2017",
+  type = "geographies"
+)
+
+```
+```{r}
+# Check CBP metadata for supported variables
+listCensusMetadata(
+  name = "cbp",
+  vintage = "2017",
+  type = "variables"
+)
+
+```
+
+```{r}
+library(dplyr)
+
+# Define NAICS code and years
+naics <- "4931"  # NAICS code for warehouses
+years <- c("2021", "2020", "2019", "2018")
+
+# Initialize an empty data frame to store results
+cbp_data <- data.frame()
+
+# Loop through each year and retrieve CBP data at the ZIP code level
+for (year in years) {
+  temp <- getCensus(
+    name = "cbp",
+    vintage = year,
+    vars = c("GEO_ID", "EMP", "ESTAB"),
+    region = "zip code:*",
+    NAICS2017 = naics
+  )
+  temp <- temp %>% mutate(YEAR = year)  # Add the year column
+  cbp_data <- bind_rows(cbp_data, temp)
+}
+
+# Display the first few rows of the data
+head(cbp_data)
+
+```
+
+
+
+Summary of CBP
+
+```{r}
+# Check the structure of the data
+str(cbp_data)
+
+# Display summary statistics
+summary(cbp_data)
+```
+
+### Geometry:
+
+Tracks
+
+```{r}
+SB_tracts <- tracts("CA", "San Bernardino")
+
+ggplot(SB_tracts) + 
+  geom_sf()
+```
+
+
+### Land use:
+
+```{r}
+#The pathway to the folder you want your data stored into
+setwd("C:/Users/cata1/OneDrive - University of California, Davis/ESP171_Urban_Regional_Planning/Exercise/Paper/City_of_San_Bernardino_Zoning")
+# Read the file
+lu <- st_read("com_develp_newparcels.gpkg")
+
+development <- st_read("development.gpkg")
+cv              
+limits <- st_read("city_limits.gpkg")
+```
+
+Cross sectional data
+
+```{r}
+
+# Pivot the data to wide format
+
+totalpop_w <- totalpop %>%
+  dplyr::select(GEOID, NAME, variable, estimate, geometry) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+ancestry_wide <- ancestry %>%
+  dplyr::select(GEOID, NAME, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+race_wide <- race %>%
+  dplyr::select(GEOID, NAME, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+foreign_wide <- foreign %>%
+  dplyr::select(GEOID, NAME, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+occup_transp_work_wide <- occup_transp_work %>%
+  dplyr::select(GEOID, NAME, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+place_work_wide <- place_work %>%
+  dplyr::select(GEOID, NAME, variable, estimate) %>%
+  pivot_wider(names_from = variable, values_from = estimate)
+
+combined_df <- totalpop_w %>%
+  left_join(ancestry_wide, by = c("GEOID", "NAME")) %>%
+  left_join(race_wide, by = c("GEOID", "NAME")) %>%
+  left_join(foreign_wide, by = c("GEOID", "NAME")) %>%
+  left_join(occup_transp_work_wide, by = c("GEOID", "NAME"))
+
+
+# Plot
+ggplot(combined_df$geometry) + 
+  geom_sf()
+
+```
+
+
+
+# *RQ1: freight facilities distribute along the study area*
+
+# Point pattern analysis
+
+
+## Get the facility location
+```{r}
+# Google maps key
+key <- "MY_KEY"
+
+# Function to get the year of starting operation
+get_opening_year <- function(details) {
+  # Attempt to extract the opening year from the place details
+  if (!is.null(details$opening_hours)) {
+    # Google Places API does not provide explicit opening year, so we may need to infer it from available data
+    # Placeholder for custom logic if opening year can be derived
+    return(NA)  # Placeholder: No explicit opening year in API
+  } else {
+    return(NA)
+  }
+}
+
+# Function to get coordinates for a given address
+get_coordinates <- function(address) {
+  tryCatch({
+    geocode_OSM(address, as.data.frame = TRUE)[, c("lat", "lon")]
+  }, error = function(e) {
+    return(data.frame(lat = NA, lon = NA))
+  })
+}
+
+# Function to call the facilities
+get_facilities <- function(type) {
+
+  # Find warehouses in San Bernardino, CA
+  DC_places <- google_places(search_string = type, 
+                             location = c(34.1083, -117.29),  # Coordinates for San Bernardino, CA
+                             key = key)
+  
+  # Extract warehouse names and initialize address vector
+  DC_names <- DC_places$results$name
+  DC_addresses <- vector("character", length = length(DC_names))
+  #DC_opening_years <- vector("integer", length = length(DC_names))
+  
+  # Store warehouse details
+  DC_details <- list()
+  
+  # Iterate over each warehouse to get its details
+  for (i in 1:nrow(DC_places$results)) {
+    place_id <- DC_places$results[i, "place_id"]
+    details <- google_place_details(place_id = place_id, key = key)
+    DC_details[[i]] <- details$result
+    # Extract and store address
+    DC_addresses[i] <- details$result$formatted_address
+    # Extract and store opening year
+    #DC_opening_years[i] <- get_opening_year(details$result)
+  }
+
+  # Combine warehouse names and addresses into a data frame
+  DC_info <- data.frame(Name = DC_names, Address = DC_addresses)
+  #DC_info <- data.frame(Name = DC_names, Address = DC_addresses, Opening_Year = DC_opening_years)
+  
+  
+  # Create an empty dataframe
+  DC <- tibble(Facility_Name = character(), Address = character(), Latitude = double(), Longitude = double())
+  #DC <- tibble(Facility_Name = character(), Address = character(), Latitude = double(), Longitude = double(), Opening_Year = integer())
+  
+  # Populate the dataframe with coordinates
+  for (i in 1:nrow(DC_info)) {
+    address <- DC_info$Address[i]
+    coords <- get_coordinates(address)
+    DC <- DC %>% add_row(Facility_Name = DC_info$Name[i], Address = address, Latitude = coords$lat, Longitude = coords$lon)
+    #DC <- DC %>% add_row(Facility_Name = DC_info$Name[i], Address = address, Latitude = coords$lat, Longitude = coords$lon, Opening_Year = DC_info$Opening_Year[i])
+  }
+  
+  # Check the resulting dataframe
+  return(DC)
+}
+
+DC <- get_facilities("distribution center")
+W <- get_facilities("warehouse")
+L <- get_facilities("logistics")
+
+```
+
+
+## Plot the locations
+
+First, we need to convert df into a spatial sf object. Here, we use the function st_as_sf() and use an appropriate coordinate reference system.
+
+```{r}
+
+facilities <- rbind(W, DC, L)
+
+# Remove rows with NA coordinates
+facilities <- facilities %>%
+  filter(!is.na(Latitude) & !is.na(Longitude))
+
+# Convert to a regular data frame if necessary
+facilities <- as.data.frame(facilities)
+
+# Convert to sf object
+facilities <- facilities %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), 
+           crs = "+proj=longlat +datum=NAD83 +ellps=GRS80")# For San Bernardino County https://epsg.io/2874
+
+# Print the combined sf object
+print(facilities)
+
+
+```
+
+
+
+we need to transform the layer to a planar CRS 
+
+```{r}
+TA <- crs(" +proj=aea +lat_1=34 +lat_2=40.5 +lat_0=0 +lon_0=-120 +x_0=0
++y_0=-4000000 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0")
+
+
+lu <- st_transform(lu, TA)
+limits <- st_transform(limits, TA)
+```
+
+Finally, map the stations by their mean monthly temperature.
+
+```{r}
+ggplot(data = limits) + geom_sf() +
+          geom_sf(data = facilities, aes(color = "red")) +
+      #scale_color_gradient(low = "blue", high = "red", name ="Temperature") + 
+    theme( axis.text =  element_blank(),
+    axis.ticks =  element_blank(),
+    panel.background = element_blank())
+```
+Save file
+
+```{r}
+# Specify the file path where you want to save the shapefile
+file_path <- "C:/Users/cata1/OneDrive - University of California, Davis/ESP171_Urban_Regional_Planning/Exercise/Paper/City_of_San_Bernardino_Zoning/facilities.shp"
+
+# Write the sf object to a shapefile
+#st_write(facilities, file_path)
+
+```
+
+## Point patter analysis
+
+```{r}
+# To sf object
+facilities.sf <- st_as_sf(facilities)
+
+# Transform limits and facilities to the target CRS
+limits.sf <- st_as_sf(limits)
+limits.sf <- st_transform(limits.sf, crs = TA)
+facilities.sf <- st_transform(facilities.sf, crs = TA)
+
+# Centrography
+xy <- st_coordinates(facilities.sf)
+
+# Create a data frame with the coordinates
+coords <- data.frame(x = xy[, 1], y = xy[, 2])
+
+# convert the object to a ppp object 
+facilities.ppp <- as.ppp(coords, st_bbox(facilities.sf))
+
+# Check for marks
+marks(facilities.ppp)
+
+# boundaries explicitly defined
+city.sf <- st_as_sf(limits.sf)
+cityOwin <- as.owin(city.sf)
+class(cityOwin)
+
+# “bind” the city boundary owin 
+Window(facilities.ppp) <- cityOwin
+
+# -------------------------- Centrography ------------------------------------ #
+
+# Compute the mean center
+mc <- coords %>%
+  summarize(xmean = mean(x), ymean = mean(y))
+
+# Print the mean center
+print(mc)
+
+
+# Compute the standard distance
+sd <- sqrt(sum((coords$x - mc$xmean)^2 + (coords$y - mc$ymean)^2) / nrow(coords))
+
+# Print the standard distance
+print(sd)
+
+
+# ----------------------- Density based measures ----------------------------- #
+
+# Compute the city area
+CityArea <- area.owin(cityOwin)
+
+# Compute the density
+density <- nrow(xy) / CityArea
+print(density)
+
+# --------------------------- Quadrat counts --------------------------------- #
+
+qcounts1 <- quadratcount(facilities.ppp, nx= 6, ny=3)
+
+# Plot
+plot(facilities.ppp, pch=20, cols="grey70", main=NULL)  # Plot points
+plot(qcounts1, add=TRUE)  # Add quadrat grid. 
+
+Qcount<-data.frame(qcounts1)
+
+#VMR
+VMR <- var(Qcount$Freq)/mean(Qcount$Freq)
+print(VMR)
+
+# Test
+quadrat.test(facilities.ppp, nx= 30, ny=15) # Test
+
+# --------------------------- Kernel density --------------------------------- #
+
+# kernel density approach
+ds <- density.ppp(facilities.ppp)
+par(mai=c(0,0,0.5,0.5))
+plot(ds, main='Facilities density')
+
+
+
+```
+
+The resulting chi-square value 313.41 with p-value nearly zero at the significant level of 95%, allow as to reject the null hypothesis that set complete spatial random pattern. Therefore, considering a VMR greater than 1, we can said there is a clustering pattern.
+
+
+# Anomaly detection - Pending
+
+
+
+# *RQ2: *
+
+Create the variable with number of facilities per track
+
+```{r}
+
+# Convert to crs
+combined_df <-st_transform(combined_df, crs = "+proj=utm +zone=18 +datum=NAD83 +ellps=GRS80") 
+facilities_df <-st_transform(facilities, crs = "+proj=utm +zone=18 +datum=NAD83 +ellps=GRS80") 
+
+# Spatial join: find which points are within which tracts
+points_within_tracts <- st_join(st_as_sf(data.frame(facilities_df$geometry)), combined_df, join = st_within)
+
+# Count the number of points within each tract
+points_count_per_tract <- points_within_tracts %>%
+  group_by(GEOID) %>%  # Adjust 'GEOID' to the appropriate column name for your tract identifier
+  summarise(points_count = n())
+
+# Join the counts back to the tracts data to retain all tract geometries
+tracts_with_counts <- combined_df %>%
+  st_join(points_count_per_tract, by = "GEOID")
+
+# Replace NA with 0 for tracts with no points
+tracts_with_counts$points_count[is.na(tracts_with_counts$points_count)] <- 0
+
+# Final cross_seccional data
+cross_sec <- combined_df %>%
+  mutate(facilities_count = tracts_with_counts$points_count)
+
+print(cross_sec)
+```
+
+
+# Spatial Autocorrelation
+
+```{r}
+# Queen contiguity
+queen <- poly2nb(cross_sec, queen=T)
+summary(queen)
+
+# Queen weight matrix
+queen_cw<-nb2listw(queen, style="W", zero.policy= TRUE)
+
+# Weights 
+queen_cw$weights[[1]]
+```
+The average number of neighbors (adjacent polygons) is 6.11, 0 polygon has 0 neighbors and 1 has 18 neighbors.
+
+We can visualize the neighbor connections between tracts using the weight matrix created from nb2listw().
+
+```{r}
+centroids <- st_centroid(st_geometry(cross_sec))
+plot(st_geometry(cross_sec), border = "grey60", reset = FALSE)
+plot(queen_cw, coords = centroids, add=T, col = "red")
+```
+
+Let's print Moran Scatterplot first.
+```{r}
+moran.plot(cross_sec$facilities_count, listw=queen_cw, xlab="Number of facilities", ylab="Standardized Lagged cases",
+main=c("Moran Scatterplot for freight facilities in 2021"),
+zero.policy= TRUE)
+```
+
+A global index of spatial autocorrelation provides a summary over the entire study area of the level of spatial similarity observed among neighboring observations. 
+
+```{r}
+# global Moran's I
+moran_queen <- moran.test(cross_sec$facilities_count, queen_cw, zero.policy= TRUE) # Using the spatial weights matrix for the queen matrix
+print(moran_queen)
+```
+Now we can calculate the Monte Carlo simulation considering queen weighted matrix.
+```{r}
+# Monte Carlo method
+MC<- moran.mc(cross_sec$facilities_count, queen_cw, nsim=999, alternative="greater", zero.policy= TRUE)
+# Print MC
+print(MC)
+# Plot MC
+plot(MC)
+```
+Moran I statistic for queen weighted matrix: Moran I statistic 0.3594921053, standard standard deviate = 14.198, p-value < 2.2e-16. This result means there's a 0.1% chance of observing a Moran's I value as large as or larger than the observed value if there were no spatial autocorrelation in the data, suggesting strong evidence against the null hypothesis of no spatial autocorrelation. Therefore, we should reject the null hypothesis and conclude that there is significant positive spatial autocorrelation on the number of freight facilities. 
+
+# Local Getis-Ord
+
+We calculate Gi$*$ for each tract using the function localG() which is part of the spdep package. 
+
+```{r}
+# nb object that includes the location itself
+facility.self <- include.self(queen)
+
+#create a self-included spatial weights object
+facility.w.self <- nb2listw(facility.self, style="W", zero.policy= TRUE)
+
+facilities_Gi<-localG(cross_sec$facilities_count, facility.w.self, zero.policy = TRUE)
+summary(facilities_Gi)
+```
+Local Getis-Ord has returned z-scores between -0.8357 and 15.0199. This statistic can describe where hot and cold spots cluster. The interpretation of the Z-score is straightforward: a large positive value suggests a cluster of high number of facilities (hot spot) and a large negative value indicates a cluster of low facilities (cold spot).
+
+Plot hot spots
+
+```{r}
+# coerce the object localgstar to be numeric
+cross_sec <- cross_sec %>%
+  mutate(spots = as.numeric(facilities_Gi)) 
+
+# Plot
+tm_shape(cross_sec, unit = "mi") +
+  tm_polygons(col = "spots", title = "Gi* value", palette = "-RdBu", style = "quantile") +
+  tm_scale_bar(breaks = c(0, 10, 20), text.size = 1) +
+  tm_layout(frame = F, main.title = "Facilities location in 2021",
+            legend.outside = T) 
+
+```
+Save data
+
+```{r}
+# Specify the file path where you want to save the shapefile
+file_path <- "C:/Users/cata1/OneDrive - University of California, Davis/ESP171_Urban_Regional_Planning/Exercise/Paper/City_of_San_Bernardino_Zoning/cross_sec.shp"
+
+# Write the sf object to a shapefile
+#st_write(cross_sec, file_path)
+```
+
+
+# spatial regression - Pending
+
+
+The reasons why you run a spatial regression significantly overlap with the reasons for running a regular linear regression. However, there is one additional important motivation: to explicitly incorporate spatial dependency in the model. There are two common flavors of spatial regression: the spatial error model (SEM) and the spatial lag model (SLM). The main reason to run a spatial error model is to control for general spatial autocorrelation. We want to do this because spatial autocorrelation breaks the very important assumption that our regression errors are not correlated. The main reason to run a spatial lag model is to formally model spatial contagion. We are modelling the impact of our neighbors’ outcomes on our own outcome. For example, the impact of nearby characteristics on freight facility location. 
+
+
+# *RQ#: The impact of those facilities on the community*
+
